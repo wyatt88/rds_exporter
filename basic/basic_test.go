@@ -12,9 +12,9 @@ import (
 func TestNew(t *testing.T) {
 	t.Parallel()
 
-	settings := &config.Settings{}
+	var config config.Config
 	sessions := &sessions.Sessions{}
-	c := New(settings, sessions)
+	c := New(&config, sessions)
 
 	if c == nil {
 		t.Fatal("exporter should not be nil")
@@ -24,9 +24,9 @@ func TestNew(t *testing.T) {
 func TestCollector_Collect(t *testing.T) {
 	t.Parallel()
 
-	settings := &config.Settings{}
+	var config config.Config
 	sessions := &sessions.Sessions{}
-	c := New(settings, sessions)
+	c := New(&config, sessions)
 
 	if c == nil {
 		t.Fatal("exporter should not be nil")
@@ -54,9 +54,9 @@ func TestCollector_Collect(t *testing.T) {
 func TestCollector_Describe(t *testing.T) {
 	t.Parallel()
 
-	settings := &config.Settings{}
+	var config config.Config
 	sessions := &sessions.Sessions{}
-	c := New(settings, sessions)
+	c := New(&config, sessions)
 
 	if c == nil {
 		t.Fatal("exporter should not be nil")
