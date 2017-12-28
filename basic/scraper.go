@@ -1,7 +1,6 @@
 package basic
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -87,7 +86,7 @@ func (s *Scraper) scrape() {
 		go func(metric Metric) {
 			err := s.scrapeMetric(metric)
 			if err != nil {
-				fmt.Println(err)
+				s.exporter.l.WithField("metric", metric.Name).Error(err)
 			}
 
 			wg.Done()

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/percona/rds_exporter/config"
 	"github.com/percona/rds_exporter/latency"
@@ -35,6 +36,8 @@ type Exporter struct {
 	Metrics           []Metric
 	ErroneousRequests prometheus.Counter
 	TotalRequests     prometheus.Counter
+
+	l *logrus.Entry
 }
 
 // New creates a new instance of a Exporter.
@@ -42,7 +45,8 @@ func New(config *config.Config, sessions *sessions.Sessions) *Exporter {
 	return &Exporter{
 		Config:   config,
 		Sessions: sessions,
-		Metrics:  Metrics,
+
+		Metrics: Metrics,
 		ErroneousRequests: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "rds_exporter_erroneous_requests",
 			Help: "The number of erroneous API request made to CloudWatch.",
@@ -51,6 +55,8 @@ func New(config *config.Config, sessions *sessions.Sessions) *Exporter {
 			Name: "rds_exporter_requests_total",
 			Help: "API requests made to CloudWatch",
 		}),
+
+		l: logrus.WithField("component", "basic"),
 	}
 }
 

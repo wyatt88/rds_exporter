@@ -2,6 +2,7 @@ package enhanced
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -10,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
+	"github.com/sirupsen/logrus"
 
 	"github.com/percona/rds_exporter/config"
 	"github.com/percona/rds_exporter/latency"
@@ -46,6 +47,8 @@ type Exporter struct {
 	Metrics           map[string]Metric
 	ErroneousRequests prometheus.Counter
 	TotalRequests     prometheus.Counter
+
+	l *logrus.Entry
 }
 
 func New(config *config.Config, sessions *sessions.Sessions) *Exporter {
@@ -53,6 +56,7 @@ func New(config *config.Config, sessions *sessions.Sessions) *Exporter {
 		Config:   config,
 		Sessions: sessions,
 		Metrics:  Metrics,
+
 		ErroneousRequests: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "rds_exporter_erroneous_requests",
 			Help: "The number of erroneous API request made to CloudWatch.",
@@ -61,6 +65,8 @@ func New(config *config.Config, sessions *sessions.Sessions) *Exporter {
 			Name: "rds_exporter_requests_total",
 			Help: "API requests made to CloudWatch",
 		}),
+
+		l: logrus.WithField("component", "enhanced"),
 	}
 }
 
@@ -105,7 +111,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 
 			err := e.collectInstance(ch, instance)
 			if err != nil {
-				log.Error(err)
+				e.l.WithField("region", instance.Region).WithField("instance", instance.Instance).Error(err)
 			}
 		}(instance)
 	}
@@ -138,11 +144,11 @@ func (e *Exporter) collectValues(ch chan<- prometheus.Metric, instance config.In
 		FilterPattern: aws.String(fmt.Sprintf(`{ $.instanceID = "%s" }`, instance.Instance)),
 	})
 	if err != nil {
-		return fmt.Errorf("unable to get logs for instance %s: %s", instance.Instance, err)
+		return fmt.Errorf("unable to get logs: %s", err)
 	}
 
 	if len(FilterLogEventsOutput.Events) == 0 {
-		return fmt.Errorf("no events in region %s for instance %s", instance.Region, instance.Instance)
+		return errors.New("no log events")
 	}
 
 	var message interface{}
@@ -170,7 +176,7 @@ func (e *Exporter) collectValues(ch chan<- prometheus.Metric, instance config.In
 
 			err := e.collectValue(ch, instance, key, value, l)
 			if err != nil {
-				log.Error(err)
+				e.l.WithField("region", instance.Region).WithField("instance", instance.Instance).WithField("key", key).Error(err)
 			}
 		}(key, value)
 	}
@@ -237,7 +243,7 @@ func (e *Exporter) sendMetric(ch chan<- prometheus.Metric, instance config.Insta
 	FQName := prometheus.BuildFQName(namespace, subsystem, name)
 	metric, ok := e.Metrics[FQName]
 	if !ok {
-		log.Errorf("unknown metric %s", FQName)
+		e.l.WithField("region", instance.Region).WithField("instance", instance.Instance).Errorf("unknown metric %s", FQName)
 		return
 	}
 
