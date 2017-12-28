@@ -13,19 +13,21 @@ import (
 // Sessions is a pool of aws *session.Sessions.
 type Sessions struct {
 	sessions map[config.Instance]*session.Session
-	sync.RWMutex
+	rw       sync.RWMutex
+}
+
+func Load(instances []config.Instance) (*Sessions, error) {
+	s := new(Sessions)
+	if err := s.load(instances); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *Sessions) Get(instance config.Instance) *session.Session {
-	s.RLock()
-	defer s.RUnlock()
+	s.rw.RLock()
+	defer s.rw.RUnlock()
 	return s.sessions[instance]
-}
-
-func (s *Sessions) Load(instances []config.Instance) error {
-	s.Lock()
-	defer s.Unlock()
-	return s.load(instances)
 }
 
 func (s *Sessions) load(instances []config.Instance) error {

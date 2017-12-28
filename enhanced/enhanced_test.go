@@ -1,4 +1,4 @@
-package basic
+package enhanced
 
 import (
 	"testing"
@@ -37,7 +37,7 @@ func TestCollector_Collect(t *testing.T) {
 		metrics = append(metrics, *helpers.ReadMetric(m))
 	}
 
-	assert.Len(t, metrics, 110, "%+v", metrics)
+	assert.Len(t, metrics, 3, "%+v", metrics)
 }
 
 func TestCollector_Describe(t *testing.T) {
@@ -55,5 +55,5 @@ func TestCollector_Describe(t *testing.T) {
 		descs = append(descs, d)
 	}
 
-	assert.Len(t, descs, 53, "%+v", descs)
+	assert.Len(t, descs, 81, "%+v", descs)
 }
