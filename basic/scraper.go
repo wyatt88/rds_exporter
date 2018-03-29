@@ -20,7 +20,7 @@ var (
 
 type Scraper struct {
 	// params
-	instance config.Instance
+	instance *config.Instance
 	exporter *Exporter
 	ch       chan<- prometheus.Metric
 
@@ -30,7 +30,7 @@ type Scraper struct {
 	latency *latency.Latency
 }
 
-func NewScraper(instance config.Instance, exporter *Exporter, ch chan<- prometheus.Metric) *Scraper {
+func NewScraper(instance *config.Instance, exporter *Exporter, ch chan<- prometheus.Metric) *Scraper {
 	// Create CloudWatch client
 	sess := exporter.Sessions.Get(instance)
 	svc := cloudwatch.New(sess)

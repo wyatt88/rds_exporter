@@ -23,7 +23,7 @@ type Instance struct {
 }
 
 type Config struct {
-	Instances []Instance `yaml:"instances"`
+	Instances []*Instance `yaml:"instances"`
 }
 
 func Load(filename string) (*Config, error) {

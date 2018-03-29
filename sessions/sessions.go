@@ -1,65 +1,56 @@
 package sessions
 
 import (
-	"sync"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/sirupsen/logrus"
 
+	"github.com/percona/rds_exporter/client"
 	"github.com/percona/rds_exporter/config"
 )
 
-// Sessions is a pool of aws *session.Sessions.
+// Sessions is a pool of AWS sessions.
 type Sessions struct {
-	sessions map[config.Instance]*session.Session
-	rw       sync.RWMutex
+	sessions map[*config.Instance]*session.Session
 }
 
-func Load(instances []config.Instance) (*Sessions, error) {
-	s := new(Sessions)
-	if err := s.load(instances); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-func (s *Sessions) Get(instance config.Instance) *session.Session {
-	s.rw.RLock()
-	defer s.rw.RUnlock()
-	return s.sessions[instance]
-}
-
-func (s *Sessions) load(instances []config.Instance) error {
-	// Destroy known sessions
-	s.sessions = map[config.Instance]*session.Session{}
-
-	// Load new sessions
-	for _, instance := range instances {
-		s.loadOne(instance)
-	}
-	return nil
-}
-
-func (s *Sessions) loadOne(instance config.Instance) {
-	awsConfig := &aws.Config{
-		CredentialsChainVerboseErrors: aws.Bool(true),
-		Region: aws.String(instance.Region),
-		// TODO HTTPClient
-		// TODO Logger
+// New creates a new sessions pool for given configuration.
+func New(cfg *config.Config, client *client.Client, logger *logrus.Entry) (*Sessions, error) {
+	res := &Sessions{
+		sessions: make(map[*config.Instance]*session.Session, len(cfg.Instances)),
 	}
 
-	// If aws_access_key or aws_secret_key is present in config
-	// then use those rather than relying on automatic configuration detection in aws library.
-	if instance.AWSAccessKey != "" || instance.AWSSecretKey != "" {
-		awsConfig.Credentials = credentials.NewCredentials(&credentials.StaticProvider{
-			Value: credentials.Value{
-				AccessKeyID:     instance.AWSAccessKey,
-				SecretAccessKey: instance.AWSSecretKey,
-			},
+	for _, instance := range cfg.Instances {
+		// use given credentials, or default credential chain
+		var creds *credentials.Credentials
+		if instance.AWSAccessKey != "" || instance.AWSSecretKey != "" {
+			creds = credentials.NewCredentials(&credentials.StaticProvider{
+				Value: credentials.Value{
+					AccessKeyID:     instance.AWSAccessKey,
+					SecretAccessKey: instance.AWSSecretKey,
+				},
+			})
+		}
+
+		s, err := session.NewSession(&aws.Config{
+			CredentialsChainVerboseErrors: aws.Bool(true),
+			Credentials:                   creds,
+			Region:                        aws.String(instance.Region),
+			HTTPClient:                    client.HTTP(),
+			LogLevel:                      aws.LogLevel(aws.LogDebug),
+			Logger:                        aws.LoggerFunc(logger.Debug),
 		})
+		if err != nil {
+			return nil, err
+		}
+		res.sessions[instance] = s
 	}
 
-	// Cache session
-	s.sessions[instance] = session.Must(session.NewSession(awsConfig))
+	return res, nil
+}
+
+// Get returns sessions for given instance.
+func (s *Sessions) Get(instance *config.Instance) *session.Session {
+	return s.sessions[instance]
 }
